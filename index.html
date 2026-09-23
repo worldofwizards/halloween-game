@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>萬聖盲盒：命定試煉</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f0c20; color: #fff; text-align: center; padding: 24px 16px; min-height: 100vh; display: flex; flex-direction: column; justify-content: center; }
+    h1 { font-size: 22px; color: #fb923c; margin-bottom: 8px; }
+    p.sub { font-size: 14px; color: #cbd5e1; margin-bottom: 24px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; max-width: 400px; margin: 0 auto; width: 100%; }
+    .door-btn { background: #1e1b4b; border: 2px solid #a855f7; border-radius: 12px; color: #fff; padding: 28px 12px; font-size: 18px; font-weight: bold; cursor: pointer; }
+    .door-btn:active { transform: scale(0.96); }
+    .card { background: #1e1b4b; border: 2px solid #ec4899; border-radius: 16px; padding: 24px 16px; max-width: 400px; margin: 0 auto; width: 100%; display: none; }
+    .prize-title { font-size: 18px; font-weight: bold; color: #38bdf8; margin: 20px 0; line-height: 1.4; word-break: break-all; }
+    .redeem-btn { background: #e11d48; color: #fff; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; padding: 14px; width: 100%; cursor: pointer; }
+    .redeem-btn.done { background: #475569 !important; cursor: not-allowed; }
+    #loading { display: none; font-size: 16px; color: #f59e0b; margin: 20px 0; }
+  </style>
+</head>
+<body>
+
+  <h1>🎃 萬聖盲盒：命定試煉 🎃</h1>
+  <p class="sub" id="statusText">憑直覺點選一扇維度之門揭開獎項：</p>
+  <div id="loading">讀取中，請稍候...</div>
+
+  <div class="grid" id="doorsArea">
+    <button class="door-btn" onclick="makeChoice('門1【鏡像之門】')">🚪 門 1</button>
+    <button class="door-btn" onclick="makeChoice('門2【錯視之門】')">🚪 門 2</button>
+    <button class="door-btn" onclick="makeChoice('門3【無限之門】')">🚪 門 3</button>
+    <button class="door-btn" onclick="makeChoice('門4【顛倒之門】')">🚪 門 4</button>
+  </div>
+
+  <div class="card" id="resultCard">
+    <p style="color: #cbd5e1; font-size: 14px;">🎁 你的命定試煉獎項</p>
+    <div class="prize-title" id="prizeDisplay"></div>
+    <p style="font-size: 13px; color: #94a3b8; margin-bottom: 16px;">結帳時請主動出示此畫面供現場人員核銷折抵</p>
+    <button class="redeem-btn" id="redeemBtn" onclick="confirmRedeem()">【限店員點擊】確認核銷</button>
+  </div>
+
+  <script>
+    const BACKEND_URL = "https://script.google.com/macros/s/AKfycbzldKIAPJAwkJ14EVFgOKAiMT_iaDqIV2ufazDpKGfA32saM9W3d84Wl45RU7bQX_5r/exec";
+    let userId = "";
+
+    async function initApp() {
+      showLoading(true);
+      try {
+        await liff.init({ liffId: location.search.includes("liffId=") ? new URLSearchParams(location.search).get("liffId") : window.__LIFF_ID__ || "" });
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+        const profile = await liff.getProfile();
+        userId = profile.userId;
+
+        const res = await fetch(BACKEND_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain" },
+          body: JSON.stringify({ action: "check", userId: userId })
+        });
+        const data = await res.json();
+        if (data.status === "already_played") {
+          displayResult(data.prize, data.redeemed);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        showLoading(false);
+      }
+    }
+
+    async function makeChoice(doorName) {
+      showLoading(true);
+      try {
+        const res = await fetch(BACKEND_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain" },
+          body: JSON.stringify({ action: "draw", userId: userId, choice: doorName })
+        });
+        const data = await res.json();
+        displayResult(data.prize, false);
+      } catch (err) {
+        alert("連線異常，請稍後再試！");
+      } finally {
+        showLoading(false);
+      }
+    }
+
+    function displayResult(prize, isRedeemed) {
+      document.getElementById("doorsArea").style.display = "none";
+      document.getElementById("statusText").style.display = "none";
+      document.getElementById("resultCard").style.display = "block";
+      document.getElementById("prizeDisplay").innerText = prize;
+
+      if (isRedeemed) {
+        const btn = document.getElementById("redeemBtn");
+        btn.innerText = "已於門市核銷完畢";
+        btn.classList.add("done");
+        btn.disabled = true;
+      }
+    }
+
+    async function confirmRedeem() {
+      const pass = confirm("【現場店員專用】確定要核銷並折抵此獎項嗎？確認後無法復原。");
+      if (!pass) return;
+
+      showLoading(true);
+      try {
+        const res = await fetch(BACKEND_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain" },
+          body: JSON.stringify({ action: "redeem", userId: userId })
+        });
+        const data = await res.json();
+        if (data.status === "success") {
+          displayResult(document.getElementById("prizeDisplay").innerText, true);
+        }
+      } catch (err) {
+        alert("核銷失敗，請檢查網路連線。");
+      } finally {
+        showLoading(false);
+      }
+    }
+
+    function showLoading(show) {
+      document.getElementById("loading").style.display = show ? "block" : "none";
+    }
+
+    window.onload = initApp;
+  </script>
+</body>
+</html>
