@@ -3,67 +3,177 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>萬聖盲盒：命定試煉</title>
+  <title>桿道夫：巫師試煉 4瓶命定魔藥</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f0c20; color: #fff; text-align: center; padding: 24px 16px; min-height: 100vh; display: flex; flex-direction: column; justify-content: center; }
-    h1 { font-size: 22px; color: #fb923c; margin-bottom: 8px; }
-    p.sub { font-size: 14px; color: #cbd5e1; margin-bottom: 24px; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+      background: radial-gradient(circle at top, #1e1333, #0a0612); 
+      color: #fff; 
+      text-align: center; 
+      padding: 24px 16px; 
+      min-height: 100vh; 
+      display: flex; 
+      flex-direction: column; 
+      justify-content: center; 
+    }
+    h1 { font-size: 22px; color: #fbbf24; margin-bottom: 6px; letter-spacing: 1px; }
+    p.concept { font-size: 13px; color: #cbd5e1; margin-bottom: 22px; line-height: 1.5; }
+    
+    /* 4 瓶魔藥網格排版 */
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; max-width: 400px; margin: 0 auto; width: 100%; }
-    .door-item { background: #1e1b4b; border: 2px solid #a855f7; border-radius: 12px; padding: 12px; cursor: pointer; }
-    .door-item:active { transform: scale(0.95); }
-    .door-item img { width: 100%; height: 110px; object-fit: contain; border-radius: 8px; display: block; }
-    .door-item span { display: block; margin-top: 8px; font-size: 15px; font-weight: bold; color: #fff; }
-    .card { background: #1e1b4b; border: 2px solid #ec4899; border-radius: 16px; padding: 24px 16px; max-width: 400px; margin: 0 auto; width: 100%; display: none; }
-    .prize-title { font-size: 18px; font-weight: bold; color: #38bdf8; margin: 20px 0; line-height: 1.4; word-break: break-all; }
-    .redeem-btn { background: #e11d48; color: #fff; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; padding: 14px; width: 100%; cursor: pointer; }
-    .redeem-btn.done { background: #475569 !important; cursor: not-allowed; }
+    .potion-card { 
+      background: rgba(30, 27, 75, 0.7); 
+      border-radius: 14px; 
+      padding: 14px 10px; 
+      cursor: pointer; 
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+    }
+    .potion-card:active { transform: scale(0.95); }
+    
+    /* 4 瓶魔藥的發光邊框色彩 */
+    .potion-a { border: 2px solid #22c55e; } /* 毒蘋果綠 */
+    .potion-b { border: 2px solid #a855f7; } /* 暗夜紫 */
+    .potion-c { border: 2px solid #ef4444; } /* 鳳凰紅 */
+    .potion-d { border: 2px solid #38bdf8; } /* 星空藍 */
+
+    .potion-icon { font-size: 54px; display: block; margin: 6px 0; }
+    .potion-name { display: block; font-size: 16px; font-weight: bold; margin-bottom: 4px; }
+    .potion-sub { display: block; font-size: 12px; color: #94a3b8; }
+
+    /* 開獎卡片 */
+    .card { 
+      background: #1e1b4b; 
+      border: 2px solid #fbbf24; 
+      border-radius: 16px; 
+      padding: 24px 16px; 
+      max-width: 400px; 
+      margin: 0 auto; 
+      width: 100%; 
+      display: none; 
+      box-shadow: 0 8px 24px rgba(251, 191, 36, 0.25);
+    }
+    .card-subtitle { color: #fde047; font-size: 14px; font-weight: bold; letter-spacing: 0.5px; }
+    .prize-title { 
+      font-size: 18px; 
+      font-weight: bold; 
+      color: #38bdf8; 
+      margin: 18px 0; 
+      line-height: 1.5; 
+      word-break: break-all; 
+    }
+    .prize-desc {
+      background: rgba(0, 0, 0, 0.25);
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 13px;
+      color: #e2e8f0;
+      margin-bottom: 18px;
+      text-align: left;
+    }
+    .redeem-tip { font-size: 12px; color: #94a3b8; margin-bottom: 16px; }
+    .redeem-btn { 
+      background: linear-gradient(135deg, #e11d48, #be123c); 
+      color: #fff; 
+      border: none; 
+      border-radius: 8px; 
+      font-size: 16px; 
+      font-weight: bold; 
+      padding: 14px; 
+      width: 100%; 
+      cursor: pointer; 
+      box-shadow: 0 4px 12px rgba(225, 29, 72, 0.4);
+    }
+    .redeem-btn.done { 
+      background: #475569 !important; 
+      box-shadow: none; 
+      cursor: not-allowed; 
+    }
   </style>
 </head>
 <body>
 
-  <h1>🎃 萬聖盲盒：命定試煉 🎃</h1>
-  <p class="sub" id="statusText">憑直覺點選一扇維度之門揭開獎項：</p>
+  <h1>🧙‍♂️ 桿道夫：巫師試煉 🧙‍♂️</h1>
+  <p class="concept" id="statusText">直覺就是你的魔法<br>挑一瓶魔藥調配出你的命定力量與盲盒獎項：</p>
 
   <div class="grid" id="doorsArea">
-    <div class="door-item" onclick="makeChoice('門1')">
-      <img src="door1.png" alt="門1" onerror="this.src='https://placehold.co/200x200/1e1b4b/white?text=門+1'">
-      <span>門 1</span>
+    <!-- 藥水 A：毒蘋果綠 -->
+    <div class="potion-card potion-a" onclick="makeChoice('藥水A【覺醒藥水】')">
+      <span class="potion-icon">🧪</span>
+      <span class="potion-name" style="color: #4ade80;">覺醒藥水</span>
+      <span class="potion-sub">毒蘋果綠</span>
     </div>
-    <div class="door-item" onclick="makeChoice('門2')">
-      <img src="door2.png" alt="門2" onerror="this.src='https://placehold.co/200x200/1e1b4b/white?text=門+2'">
-      <span>門 2</span>
+
+    <!-- 藥水 B：暗夜紫 -->
+    <div class="potion-card potion-b" onclick="makeChoice('藥水B【預言藥水】')">
+      <span class="potion-icon">🔮</span>
+      <span class="potion-name" style="color: #c084fc;">預言藥水</span>
+      <span class="potion-sub">暗夜紫</span>
     </div>
-    <div class="door-item" onclick="makeChoice('門3')">
-      <img src="door3.png" alt="門3" onerror="this.src='https://placehold.co/200x200/1e1b4b/white?text=門+3'">
-      <span>門 3</span>
+
+    <!-- 藥水 C：鳳凰紅 -->
+    <div class="potion-card potion-c" onclick="makeChoice('藥水C【深淵藥水】')">
+      <span class="potion-icon">🍷</span>
+      <span class="potion-name" style="color: #f87171;">深淵藥水</span>
+      <span class="potion-sub">鳳凰紅</span>
     </div>
-    <div class="door-item" onclick="makeChoice('門4')">
-      <img src="door4.png" alt="門4" onerror="this.src='https://placehold.co/200x200/1e1b4b/white?text=門+4'">
-      <span>門 4</span>
+
+    <!-- 藥水 D：星空藍 -->
+    <div class="potion-card potion-d" onclick="makeChoice('藥水D【封印藥水】')">
+      <span class="potion-icon">💎</span>
+      <span class="potion-name" style="color: #60a5fa;">封印藥水</span>
+      <span class="potion-sub">星空藍</span>
     </div>
   </div>
 
+  <!-- 開獎展示卡片 -->
   <div class="card" id="resultCard">
-    <p style="color: #cbd5e1; font-size: 14px;">🎁 你的命定試煉獎項</p>
+    <p class="card-subtitle">✨ 你的命定魔藥試煉賞賜 ✨</p>
     <div class="prize-title" id="prizeDisplay"></div>
-    <p style="font-size: 13px; color: #94a3b8; margin-bottom: 16px;">結帳時請出示此畫面供現場人員核銷折抵</p>
+    <div class="prize-desc" id="prizeRule"></div>
+    <p class="redeem-tip">結帳時請主動出示此畫面供現場人員核銷折抵</p>
     <button class="redeem-btn" id="redeemBtn" onclick="confirmRedeem()">【限店員點擊】確認核銷</button>
   </div>
 
+  <!-- 背景隱形傳輸通道 -->
+  <iframe name="hidden_frame" id="hidden_frame" style="display:none;"></iframe>
+  <form id="lotteryForm" action="https://script.google.com/macros/s/AKfycbyUHYQ2icM9ULvRjpfq3JXHUuTJhndj46fKP7muzNtthKzDOPZZ9_oajrQtrXLFq33D/exec" method="GET" target="hidden_frame" style="display:none;">
+    <input type="hidden" name="action" id="form_action">
+    <input type="hidden" name="userId" id="form_userId">
+    <input type="hidden" name="choice" id="form_choice">
+    <input type="hidden" name="prize" id="form_prize">
+  </form>
+
   <script>
     const LIFF_ID = "2011714379-OyJKvZ9Q";
-    const BACKEND_URL = "https://script.google.com/macros/s/AKfycbyUHYQ2icM9ULvRjpfq3JXHUuTJhndj46fKP7muzNtthKzDOPZZ9_oajrQtrXLFq33D/exec";
 
-    const PRIZE_LIST = {
-      "門1": "門1【鏡像之門】：神諭籤詩+商品折價卷95折",
-      "門2": "門2【錯視之門】：神諭籤詩+桿道夫第二人8折",
-      "門3": "門3【無限之門】：神諭籤詩+品牌商品100元任選",
-      "門4": "門4【顛倒之門】：神諭籤詩+幻覺帽踢"
+    // 桿道夫 4 瓶魔藥專屬獎項與規則
+    const PRIZE_DATA = {
+      "藥水A【覺醒藥水】": {
+        title: "藥水 A【覺醒藥水】",
+        reward: "神諭籤詩 ＋ 品牌商品折價卷 95 折",
+        rule: "📜 兌換規則：僅限當天結帳使用完畢，不可與其他優惠併用。"
+      },
+      "藥水B【預言藥水】": {
+        title: "藥水 B【預言藥水】",
+        reward: "神諭籤詩 ＋ 幻覺博物館成人票第二人 8 折",
+        rule: "📜 兌換規則：結帳時出示此畫面，享成人票第 2 人 8 折優惠。"
+      },
+      "藥水C【深淵藥水】": {
+        title: "藥水 C【深淵藥水】",
+        reward: "神諭籤詩 ＋ 品牌商品折價卷 8 折",
+        rule: "📜 兌換規則：僅限當天結帳使用完畢，不可與其他優惠併用。"
+      },
+      "藥水D【封印藥水】": {
+        title: "藥水 D【封印藥水】",
+        reward: "神諭籤詩 ＋ 品牌商品 300 元任選",
+        rule: "📜 兌換規則：現場挑選品牌商品 300 元免費折抵（超過可補差價）。"
+      }
     };
 
-    let userKey = "guest_" + Math.random().toString(36).substring(2, 8);
+    let userKey = "wizard_" + Math.random().toString(36).substring(2, 9);
 
     async function init() {
       try {
@@ -76,33 +186,40 @@
         console.log("LIFF Init:", e);
       }
 
-      const savedPrize = localStorage.getItem("prize_" + userKey);
-      const isUsed = localStorage.getItem("used_" + userKey);
-      if (savedPrize) {
-        showUI(savedPrize, isUsed === "true");
+      // 檢查是否已抽取過
+      const savedChoice = localStorage.getItem("gandalf_choice_" + userKey);
+      const isUsed = localStorage.getItem("gandalf_used_" + userKey);
+      if (savedChoice && PRIZE_DATA[savedChoice]) {
+        showUI(savedChoice, isUsed === "true");
       }
     }
 
-    function sendToSheet(params) {
-      const query = new URLSearchParams(params).toString();
-      const img = new Image();
-      img.src = BACKEND_URL + "?" + query;
+    function submitData(actionType, choice, prize) {
+      document.getElementById("form_action").value = actionType;
+      document.getElementById("form_userId").value = userKey;
+      document.getElementById("form_choice").value = choice || "";
+      document.getElementById("form_prize").value = prize || "";
+      document.getElementById("lotteryForm").submit();
     }
 
-    function makeChoice(door) {
-      const prize = PRIZE_LIST[door];
-      localStorage.setItem("prize_" + userKey, prize);
-      localStorage.setItem("used_" + userKey, "false");
-      showUI(prize, false);
+    function makeChoice(potionKey) {
+      const item = PRIZE_DATA[potionKey];
+      localStorage.setItem("gandalf_choice_" + userKey, potionKey);
+      localStorage.setItem("gandalf_used_" + userKey, "false");
+      showUI(potionKey, false);
 
-      sendToSheet({ action: "draw", userId: userKey, choice: door, prize: prize });
+      // 背景寫入 Google 試算表
+      submitData("draw", potionKey, item.reward);
     }
 
-    function showUI(prize, isRedeemed) {
+    function showUI(potionKey, isRedeemed) {
+      const item = PRIZE_DATA[potionKey];
       document.getElementById("doorsArea").style.display = "none";
       document.getElementById("statusText").style.display = "none";
       document.getElementById("resultCard").style.display = "block";
-      document.getElementById("prizeDisplay").innerText = prize;
+      
+      document.getElementById("prizeDisplay").innerText = item.title + "：\n" + item.reward;
+      document.getElementById("prizeRule").innerText = item.rule;
 
       if (isRedeemed) {
         const btn = document.getElementById("redeemBtn");
@@ -116,10 +233,12 @@
       const pass = confirm("【現場店員專用】確定要核銷並折抵此獎項嗎？確認後無法復原。");
       if (!pass) return;
 
-      localStorage.setItem("used_" + userKey, "true");
-      showUI(document.getElementById("prizeDisplay").innerText, true);
+      localStorage.setItem("gandalf_used_" + userKey, "true");
+      const currentChoice = localStorage.getItem("gandalf_choice_" + userKey);
+      showUI(currentChoice, true);
 
-      sendToSheet({ action: "redeem", userId: userKey });
+      // 更新試算表核銷狀態
+      submitData("redeem", "", "");
     }
 
     window.onload = init;
