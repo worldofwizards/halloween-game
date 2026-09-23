@@ -11,8 +11,10 @@
     h1 { font-size: 22px; color: #fb923c; margin-bottom: 8px; }
     p.sub { font-size: 14px; color: #cbd5e1; margin-bottom: 24px; }
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; max-width: 400px; margin: 0 auto; width: 100%; }
-    .door-btn { background: #1e1b4b; border: 2px solid #a855f7; border-radius: 12px; color: #fff; padding: 28px 12px; font-size: 18px; font-weight: bold; cursor: pointer; }
-    .door-btn:active { transform: scale(0.96); }
+    .door-item { background: #1e1b4b; border: 2px solid #a855f7; border-radius: 12px; padding: 12px; cursor: pointer; }
+    .door-item:active { transform: scale(0.95); }
+    .door-item img { width: 100%; height: 110px; object-fit: contain; border-radius: 8px; display: block; }
+    .door-item span { display: block; margin-top: 8px; font-size: 15px; font-weight: bold; color: #fff; }
     .card { background: #1e1b4b; border: 2px solid #ec4899; border-radius: 16px; padding: 24px 16px; max-width: 400px; margin: 0 auto; width: 100%; display: none; }
     .prize-title { font-size: 18px; font-weight: bold; color: #38bdf8; margin: 20px 0; line-height: 1.4; word-break: break-all; }
     .redeem-btn { background: #e11d48; color: #fff; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; padding: 14px; width: 100%; cursor: pointer; }
@@ -25,16 +27,28 @@
   <p class="sub" id="statusText">憑直覺點選一扇維度之門揭開獎項：</p>
 
   <div class="grid" id="doorsArea">
-    <button class="door-btn" onclick="makeChoice('門1')">🚪 門 1</button>
-    <button class="door-btn" onclick="makeChoice('門2')">🚪 門 2</button>
-    <button class="door-btn" onclick="makeChoice('門3')">🚪 門 3</button>
-    <button class="door-btn" onclick="makeChoice('門4')">🚪 門 4</button>
+    <div class="door-item" onclick="makeChoice('門1')">
+      <img src="door1.png" alt="門1" onerror="this.src='https://placehold.co/200x200/1e1b4b/white?text=門+1'">
+      <span>門 1</span>
+    </div>
+    <div class="door-item" onclick="makeChoice('門2')">
+      <img src="door2.png" alt="門2" onerror="this.src='https://placehold.co/200x200/1e1b4b/white?text=門+2'">
+      <span>門 2</span>
+    </div>
+    <div class="door-item" onclick="makeChoice('門3')">
+      <img src="door3.png" alt="門3" onerror="this.src='https://placehold.co/200x200/1e1b4b/white?text=門+3'">
+      <span>門 3</span>
+    </div>
+    <div class="door-item" onclick="makeChoice('門4')">
+      <img src="door4.png" alt="門4" onerror="this.src='https://placehold.co/200x200/1e1b4b/white?text=門+4'">
+      <span>門 4</span>
+    </div>
   </div>
 
   <div class="card" id="resultCard">
     <p style="color: #cbd5e1; font-size: 14px;">🎁 你的命定試煉獎項</p>
     <div class="prize-title" id="prizeDisplay"></div>
-    <p style="font-size: 13px; color: #94a3b8; margin-bottom: 16px;">結帳時請主動出示此畫面供現場人員核銷折抵</p>
+    <p style="font-size: 13px; color: #94a3b8; margin-bottom: 16px;">結帳時請出示此畫面供現場人員核銷折抵</p>
     <button class="redeem-btn" id="redeemBtn" onclick="confirmRedeem()">【限店員點擊】確認核銷</button>
   </div>
 
@@ -51,26 +65,18 @@
 
     let userKey = "guest_" + Math.random().toString(36).substring(2, 8);
 
-    // 啟動頁面
-    window.addEventListener("DOMContentLoaded", () => {
-      // 嘗試初始化 LIFF
-      if (typeof liff !== "undefined") {
-        liff.init({ liffId: LIFF_ID }).then(() => {
-          if (liff.isLoggedIn()) {
-            liff.getProfile().then(p => {
-              userKey = p.userId;
-              checkHistory();
-            }).catch(() => checkHistory());
-          } else {
-            checkHistory();
-          }
-        }).catch(() => checkHistory());
-      } else {
-        checkHistory();
+    async function init() {
+      try {
+        await liff.init({ liffId: LIFF_ID });
+        if (liff.isLoggedIn()) {
+          const profile = await liff.getProfile();
+          userKey = profile.userId; // 取得 LINE 真實身分
+        }
+      } catch (e) {
+        console.log("LIFF Init outside LINE:", e);
       }
-    });
 
-    function checkHistory() {
+      // 檢查是否已抽過
       const savedPrize = localStorage.getItem("prize_" + userKey);
       const isUsed = localStorage.getItem("used_" + userKey);
       if (savedPrize) {
@@ -78,25 +84,20 @@
       }
     }
 
+    function sendToSheet(params) {
+      const url = BACKEND_URL + "?" + new URLSearchParams(params).toString();
+      const img = new Image();
+      img.src = url; // 透過 GET 請求寫入，完全不受跨網域阻擋
+    }
+
     function makeChoice(door) {
-      const prize = PRIZE_LIST[door] || PRIZE_LIST["門1"];
-      
-      // 立即記錄在本地防重複
+      const prize = PRIZE_LIST[door];
       localStorage.setItem("prize_" + userKey, prize);
       localStorage.setItem("used_" + userKey, "false");
-
-      // 立即顯示畫面，不延遲
       showUI(prize, false);
 
-      // 非同步回傳後台試算表
-      try {
-        fetch(BACKEND_URL, {
-          method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "text/plain" },
-          body: JSON.stringify({ action: "draw", userId: userKey, choice: door, prize: prize })
-        });
-      } catch (e) {}
+      // 寫入 Google 試算表
+      sendToSheet({ action: "draw", userId: userKey, choice: door, prize: prize });
     }
 
     function showUI(prize, isRedeemed) {
@@ -120,16 +121,11 @@
       localStorage.setItem("used_" + userKey, "true");
       showUI(document.getElementById("prizeDisplay").innerText, true);
 
-      // 非同步發送核銷
-      try {
-        fetch(BACKEND_URL, {
-          method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "text/plain" },
-          body: JSON.stringify({ action: "redeem", userId: userKey })
-        });
-      } catch (e) {}
+      // 更新試算表核銷狀態
+      sendToSheet({ action: "redeem", userId: userKey });
     }
+
+    window.onload = init;
   </script>
 </body>
 </html>
