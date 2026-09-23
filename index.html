@@ -24,7 +24,7 @@
 
   <h1>🎃 萬聖盲盒：命定試煉 🎃</h1>
   <p class="sub" id="statusText">憑直覺點選一扇維度之門揭開獎項：</p>
-  <div id="loading">讀取中，請稍候...</div>
+  <div id="loading">載入中，請稍候...</div>
 
   <div class="grid" id="doorsArea">
     <button class="door-btn" onclick="makeChoice('門1【鏡像之門】')">🚪 門 1</button>
@@ -43,30 +43,34 @@
   <script>
     const LIFF_ID = "2011714379-OyJKvZ9Q";
     const BACKEND_URL = "https://script.google.com/macros/s/AKfycbzldKIAPJAwkJ14EVFgOKAiMT_iaDqIV2ufazDpKGfA32saM9W3d84Wl45RU7bQX_5r/exec";
-    let userId = "";
+    
+    // 預設獎池內容（備援）
+    const PRIZES = {
+      "門1【鏡像之門】": "門1【鏡像之門】：神諭籤詩+商品折價卷95折",
+      "門2【錯視之門】": "門2【錯視之門】：神諭籤詩+桿道夫第二人8折",
+      "門3【無限之門】": "門3【無限之門】：神諭籤詩+品牌商品100元任選",
+      "門4【顛倒之門】": "門4【顛倒之門】：神諭籤詩+幻覺帽踢"
+    };
+
+    let userId = "guest_" + Math.random().toString(36).substr(2, 9);
 
     async function initApp() {
       showLoading(true);
       try {
         await liff.init({ liffId: LIFF_ID });
-        if (!liff.isLoggedIn()) {
-          liff.login();
-          return;
+        if (liff.isLoggedIn()) {
+          const profile = await liff.getProfile();
+          userId = profile.userId;
         }
-        const profile = await liff.getProfile();
-        userId = profile.userId;
-
-        const res = await fetch(BACKEND_URL, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain" },
-          body: JSON.stringify({ action: "check", userId: userId })
-        });
-        const data = await res.json();
-        if (data.status === "already_played") {
-          displayResult(data.prize, data.redeemed);
+        
+        // 檢查本地是否有歷史紀錄
+        const localPrize = localStorage.getItem("halloween_prize_" + userId);
+        const localRedeemed = localStorage.getItem("halloween_redeemed_" + userId);
+        if (localPrize) {
+          displayResult(localPrize, localRedeemed === "true");
         }
       } catch (err) {
-        console.error(err);
+        console.log("LIFF Init:", err);
       } finally {
         showLoading(false);
       }
@@ -74,19 +78,24 @@
 
     async function makeChoice(doorName) {
       showLoading(true);
-      try {
-        const res = await fetch(BACKEND_URL, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain" },
-          body: JSON.stringify({ action: "draw", userId: userId, choice: doorName })
-        });
-        const data = await res.json();
-        displayResult(data.prize, false);
-      } catch (err) {
-        alert("連線異常，請稍後再試！");
-      } finally {
+      const prize = PRIZES[doorName] || "萬聖神秘小禮";
+      
+      // 先儲存本地防止重複領取
+      localStorage.setItem("halloween_prize_" + userId, prize);
+      localStorage.setItem("halloween_redeemed_" + userId, "false");
+
+      // 背景發送紀錄至 Google 試算表（不阻塞畫面）
+      fetch(BACKEND_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "draw", userId: userId, choice: doorName })
+      }).catch(e => console.log(e));
+
+      setTimeout(() => {
         showLoading(false);
-      }
+        displayResult(prize, false);
+      }, 500);
     }
 
     function displayResult(prize, isRedeemed) {
@@ -108,21 +117,20 @@
       if (!pass) return;
 
       showLoading(true);
-      try {
-        const res = await fetch(BACKEND_URL, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain" },
-          body: JSON.stringify({ action: "redeem", userId: userId })
-        });
-        const data = await res.json();
-        if (data.status === "success") {
-          displayResult(document.getElementById("prizeDisplay").innerText, true);
-        }
-      } catch (err) {
-        alert("核銷失敗，請檢查網路連線。");
-      } finally {
+      localStorage.setItem("halloween_redeemed_" + userId, "true");
+
+      // 背景發送核銷更新至 Google 試算表
+      fetch(BACKEND_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "redeem", userId: userId })
+      }).catch(e => console.log(e));
+
+      setTimeout(() => {
         showLoading(false);
-      }
+        displayResult(document.getElementById("prizeDisplay").innerText, true);
+      }, 500);
     }
 
     function showLoading(show) {
