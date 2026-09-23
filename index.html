@@ -17,20 +17,18 @@
     .prize-title { font-size: 18px; font-weight: bold; color: #38bdf8; margin: 20px 0; line-height: 1.4; word-break: break-all; }
     .redeem-btn { background: #e11d48; color: #fff; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; padding: 14px; width: 100%; cursor: pointer; }
     .redeem-btn.done { background: #475569 !important; cursor: not-allowed; }
-    #loading { display: none; font-size: 16px; color: #f59e0b; margin: 20px 0; }
   </style>
 </head>
 <body>
 
   <h1>🎃 萬聖盲盒：命定試煉 🎃</h1>
   <p class="sub" id="statusText">憑直覺點選一扇維度之門揭開獎項：</p>
-  <div id="loading">載入中，請稍候...</div>
 
   <div class="grid" id="doorsArea">
-    <button class="door-btn" onclick="makeChoice('門1【鏡像之門】')">🚪 門 1</button>
-    <button class="door-btn" onclick="makeChoice('門2【錯視之門】')">🚪 門 2</button>
-    <button class="door-btn" onclick="makeChoice('門3【無限之門】')">🚪 門 3</button>
-    <button class="door-btn" onclick="makeChoice('門4【顛倒之門】')">🚪 門 4</button>
+    <button class="door-btn" onclick="makeChoice('門1')">🚪 門 1</button>
+    <button class="door-btn" onclick="makeChoice('門2')">🚪 門 2</button>
+    <button class="door-btn" onclick="makeChoice('門3')">🚪 門 3</button>
+    <button class="door-btn" onclick="makeChoice('門4')">🚪 門 4</button>
   </div>
 
   <div class="card" id="resultCard">
@@ -43,62 +41,65 @@
   <script>
     const LIFF_ID = "2011714379-OyJKvZ9Q";
     const BACKEND_URL = "https://script.google.com/macros/s/AKfycbzldKIAPJAwkJ14EVFgOKAiMT_iaDqIV2ufazDpKGfA32saM9W3d84Wl45RU7bQX_5r/exec";
-    
-    // 預設獎池內容（備援）
-    const PRIZES = {
-      "門1【鏡像之門】": "門1【鏡像之門】：神諭籤詩+商品折價卷95折",
-      "門2【錯視之門】": "門2【錯視之門】：神諭籤詩+桿道夫第二人8折",
-      "門3【無限之門】": "門3【無限之門】：神諭籤詩+品牌商品100元任選",
-      "門4【顛倒之門】": "門4【顛倒之門】：神諭籤詩+幻覺帽踢"
+
+    const PRIZE_LIST = {
+      "門1": "門1【鏡像之門】：神諭籤詩+商品折價卷95折",
+      "門2": "門2【錯視之門】：神諭籤詩+桿道夫第二人8折",
+      "門3": "門3【無限之門】：神諭籤詩+品牌商品100元任選",
+      "門4": "門4【顛倒之門】：神諭籤詩+幻覺帽踢"
     };
 
-    let userId = "guest_" + Math.random().toString(36).substr(2, 9);
+    let userKey = "guest_" + Math.random().toString(36).substring(2, 8);
 
-    async function initApp() {
-      showLoading(true);
-      try {
-        await liff.init({ liffId: LIFF_ID });
-        if (liff.isLoggedIn()) {
-          const profile = await liff.getProfile();
-          userId = profile.userId;
-        }
-        
-        // 檢查本地是否有歷史紀錄
-        const localPrize = localStorage.getItem("halloween_prize_" + userId);
-        const localRedeemed = localStorage.getItem("halloween_redeemed_" + userId);
-        if (localPrize) {
-          displayResult(localPrize, localRedeemed === "true");
-        }
-      } catch (err) {
-        console.log("LIFF Init:", err);
-      } finally {
-        showLoading(false);
+    // 啟動頁面
+    window.addEventListener("DOMContentLoaded", () => {
+      // 嘗試初始化 LIFF
+      if (typeof liff !== "undefined") {
+        liff.init({ liffId: LIFF_ID }).then(() => {
+          if (liff.isLoggedIn()) {
+            liff.getProfile().then(p => {
+              userKey = p.userId;
+              checkHistory();
+            }).catch(() => checkHistory());
+          } else {
+            checkHistory();
+          }
+        }).catch(() => checkHistory());
+      } else {
+        checkHistory();
+      }
+    });
+
+    function checkHistory() {
+      const savedPrize = localStorage.getItem("prize_" + userKey);
+      const isUsed = localStorage.getItem("used_" + userKey);
+      if (savedPrize) {
+        showUI(savedPrize, isUsed === "true");
       }
     }
 
-    async function makeChoice(doorName) {
-      showLoading(true);
-      const prize = PRIZES[doorName] || "萬聖神秘小禮";
+    function makeChoice(door) {
+      const prize = PRIZE_LIST[door] || PRIZE_LIST["門1"];
       
-      // 先儲存本地防止重複領取
-      localStorage.setItem("halloween_prize_" + userId, prize);
-      localStorage.setItem("halloween_redeemed_" + userId, "false");
+      // 立即記錄在本地防重複
+      localStorage.setItem("prize_" + userKey, prize);
+      localStorage.setItem("used_" + userKey, "false");
 
-      // 背景發送紀錄至 Google 試算表（不阻塞畫面）
-      fetch(BACKEND_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action: "draw", userId: userId, choice: doorName })
-      }).catch(e => console.log(e));
+      // 立即顯示畫面，不延遲
+      showUI(prize, false);
 
-      setTimeout(() => {
-        showLoading(false);
-        displayResult(prize, false);
-      }, 500);
+      // 非同步回傳後台試算表
+      try {
+        fetch(BACKEND_URL, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "text/plain" },
+          body: JSON.stringify({ action: "draw", userId: userKey, choice: door, prize: prize })
+        });
+      } catch (e) {}
     }
 
-    function displayResult(prize, isRedeemed) {
+    function showUI(prize, isRedeemed) {
       document.getElementById("doorsArea").style.display = "none";
       document.getElementById("statusText").style.display = "none";
       document.getElementById("resultCard").style.display = "block";
@@ -112,32 +113,23 @@
       }
     }
 
-    async function confirmRedeem() {
+    function confirmRedeem() {
       const pass = confirm("【現場店員專用】確定要核銷並折抵此獎項嗎？確認後無法復原。");
       if (!pass) return;
 
-      showLoading(true);
-      localStorage.setItem("halloween_redeemed_" + userId, "true");
+      localStorage.setItem("used_" + userKey, "true");
+      showUI(document.getElementById("prizeDisplay").innerText, true);
 
-      // 背景發送核銷更新至 Google 試算表
-      fetch(BACKEND_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action: "redeem", userId: userId })
-      }).catch(e => console.log(e));
-
-      setTimeout(() => {
-        showLoading(false);
-        displayResult(document.getElementById("prizeDisplay").innerText, true);
-      }, 500);
+      // 非同步發送核銷
+      try {
+        fetch(BACKEND_URL, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "text/plain" },
+          body: JSON.stringify({ action: "redeem", userId: userKey })
+        });
+      } catch (e) {}
     }
-
-    function showLoading(show) {
-      document.getElementById("loading").style.display = show ? "block" : "none";
-    }
-
-    window.onload = initApp;
   </script>
 </body>
 </html>
