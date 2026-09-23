@@ -54,7 +54,7 @@
 
   <script>
     const LIFF_ID = "2011714379-OyJKvZ9Q";
-    const BACKEND_URL = "https://script.google.com/macros/s/AKfycbzldKIAPJAwkJ14EVFgOKAiMT_iaDqIV2ufazDpKGfA32saM9W3d84Wl45RU7bQX_5r/exec";
+    const BACKEND_URL = "https://script.google.com/macros/s/AKfycbyUHYQ2icM9ULvRjpfq3JXHUuTJhndj46fKP7muzNtthKzDOPZZ9_oajrQtrXLFq33D/exec";
 
     const PRIZE_LIST = {
       "門1": "門1【鏡像之門】：神諭籤詩+商品折價卷95折",
@@ -70,13 +70,12 @@
         await liff.init({ liffId: LIFF_ID });
         if (liff.isLoggedIn()) {
           const profile = await liff.getProfile();
-          userKey = profile.userId; // 取得 LINE 真實身分
+          userKey = profile.userId;
         }
       } catch (e) {
-        console.log("LIFF Init outside LINE:", e);
+        console.log("LIFF Init:", e);
       }
 
-      // 檢查是否已抽過
       const savedPrize = localStorage.getItem("prize_" + userKey);
       const isUsed = localStorage.getItem("used_" + userKey);
       if (savedPrize) {
@@ -85,9 +84,9 @@
     }
 
     function sendToSheet(params) {
-      const url = BACKEND_URL + "?" + new URLSearchParams(params).toString();
+      const query = new URLSearchParams(params).toString();
       const img = new Image();
-      img.src = url; // 透過 GET 請求寫入，完全不受跨網域阻擋
+      img.src = BACKEND_URL + "?" + query;
     }
 
     function makeChoice(door) {
@@ -96,7 +95,6 @@
       localStorage.setItem("used_" + userKey, "false");
       showUI(prize, false);
 
-      // 寫入 Google 試算表
       sendToSheet({ action: "draw", userId: userKey, choice: door, prize: prize });
     }
 
@@ -121,7 +119,6 @@
       localStorage.setItem("used_" + userKey, "true");
       showUI(document.getElementById("prizeDisplay").innerText, true);
 
-      // 更新試算表核銷狀態
       sendToSheet({ action: "redeem", userId: userKey });
     }
 
