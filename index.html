@@ -41,13 +41,14 @@
   </div>
 
   <script>
+    const LIFF_ID = "2011714379-OyJKvZ9Q";
     const BACKEND_URL = "https://script.google.com/macros/s/AKfycbzldKIAPJAwkJ14EVFgOKAiMT_iaDqIV2ufazDpKGfA32saM9W3d84Wl45RU7bQX_5r/exec";
     let userId = "";
 
     async function initApp() {
       showLoading(true);
       try {
-        await liff.init({ liffId: location.search.includes("liffId=") ? new URLSearchParams(location.search).get("liffId") : window.__LIFF_ID__ || "" });
+        await liff.init({ liffId: LIFF_ID });
         if (!liff.isLoggedIn()) {
           liff.login();
           return;
