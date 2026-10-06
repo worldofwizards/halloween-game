@@ -140,17 +140,37 @@
       cursor: not-allowed;
       box-shadow: none;
     }
-    #loading {
+    #loading, #login-block {
       margin-top: 80px;
       font-size: 15px;
       color: #d8b4fe;
       text-align: center;
+      line-height: 1.6;
+      max-width: 320px;
+    }
+    .login-btn {
+      margin-top: 18px;
+      background: #06c755;
+      color: #ffffff;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-weight: bold;
+      font-size: 14px;
+      cursor: pointer;
     }
   </style>
 </head>
 <body>
 
+  <!-- 載入中畫面 -->
   <div id="loading">載入試煉儀式中...</div>
+
+  <!-- 未登入阻擋畫面（使用者按上一頁或沒登入時強制停在此處） -->
+  <div id="login-block" style="display: none;">
+    <p>⚠️ 本試煉必須驗證 LINE 身分<br>請點擊下方按鈕登入 LINE 帳號後再進行抽獎！</p>
+    <button class="login-btn" onclick="liff.login()">登入 LINE 帳號</button>
+  </div>
 
   <!-- 選魔藥畫面 -->
   <div id="game-view" style="display: none;">
@@ -201,50 +221,62 @@
       "封印藥水": "品牌商品 100 元任選（可補差價）"
     };
 
-    let userLineId = "user_" + Math.floor(Math.random() * 100000);
-    let userDisplayName = "訪客";
-    const STORAGE_KEY = "halloween_v3_";
+    let userLineId = "";
+    let userDisplayName = "";
+    const STORAGE_KEY = "halloween_v4_";
 
-    async function startApp() {
-      // 1. 嘗試 LIFF 初始化（5 秒超時防呆，避免卡在加載中）
-      const liffPromise = (async () => {
-        if (typeof liff !== "undefined") {
-          await liff.init({ liffId: MY_LIFF_ID });
-          if (liff.isLoggedIn()) {
-            const profile = await liff.getProfile();
-            userLineId = profile.userId;
-            userDisplayName = profile.displayName || "LINE 用戶";
-          }
+    async function initLIFF() {
+      try {
+        await liff.init({ liffId: MY_LIFF_ID });
+
+        // 核心檢查：如果沒有登入，直接擋下
+        if (!liff.isLoggedIn()) {
+          document.getElementById('loading').style.display = 'none';
+          document.getElementById('login-block').style.display = 'block';
+          // 自動發起登入；若使用者上一頁跳回，就留在 login-block
+          liff.login();
+          return;
         }
-      })();
 
-      const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 3000));
-      
-      try {
-        await Promise.race([liffPromise, timeoutPromise]);
+        // 獲取個人真實 Profile
+        const profile = await liff.getProfile();
+        userLineId = profile.userId;
+        userDisplayName = profile.displayName || "LINE 用戶";
+
+        if (!userLineId) {
+          throw new Error("無法取得有效 LINE UserID");
+        }
+
+        // 登入驗證完全通過，關閉 loading
+        document.getElementById('loading').style.display = 'none';
+
+        // 檢查該 LINE 帳號是否已經抽過
+        let existing = null;
+        try {
+          existing = JSON.parse(localStorage.getItem(STORAGE_KEY + userLineId));
+        } catch (e) {}
+
+        if (existing && existing.potion) {
+          showResult(existing.potion, existing.prize, existing.image, existing.redeemed);
+        } else {
+          document.getElementById('game-view').style.display = 'block';
+        }
+
       } catch (err) {
-        console.warn("LIFF 載入略過，切換為瀏覽器測試模式", err);
-      }
-
-      // 2. 關閉加載動畫
-      const loading = document.getElementById('loading');
-      if (loading) loading.style.display = 'none';
-
-      // 3. 讀取紀錄或顯示抽獎介面
-      let existing = null;
-      try {
-        existing = JSON.parse(localStorage.getItem(STORAGE_KEY + userLineId));
-      } catch (e) {}
-
-      if (existing && existing.potion) {
-        showResult(existing.potion, existing.prize, existing.image, existing.redeemed);
-      } else {
-        const gameView = document.getElementById('game-view');
-        if (gameView) gameView.style.display = 'block';
+        console.error("LIFF 驗證未通過：", err);
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('login-block').style.display = 'block';
       }
     }
 
     function openPotion(potionName, potionImg) {
+      // 二次驗證防繞過：如果沒有取到 LINE ID，絕對不准抽
+      if (!userLineId) {
+        alert("尚未取得 LINE 身份，請先登入！");
+        liff.login();
+        return;
+      }
+
       const prize = PRIZES[potionName] || "神秘獎勵";
       const record = {
         potion: potionName,
@@ -270,7 +302,7 @@
           potion: potionName,
           prize: prize
         })
-      }).catch(err => console.error("Sheet API 寫入略過:", err));
+      }).catch(err => console.error("Sheet 記錄失敗:", err));
     }
 
     function showResult(potionName, prize, potionImg, isRedeemed) {
@@ -298,6 +330,11 @@
     }
 
     function verifyRedemption() {
+      if (!userLineId) {
+        alert("無效的操作身份！");
+        return;
+      }
+
       if (confirm("【店員核銷確認】\n確認已折抵此優惠？\n按下確認後將立即作廢失效！")) {
         let record = null;
         try {
@@ -323,8 +360,7 @@
       }
     }
 
-    // 啟動
-    window.addEventListener('load', startApp);
+    window.addEventListener('load', initLIFF);
   </script>
 </body>
 </html>
