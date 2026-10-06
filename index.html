@@ -201,45 +201,51 @@
       "封印藥水": "品牌商品 100 元任選（可補差價）"
     };
 
-    let userLineId = "guest_" + Math.random().toString(36).substring(2, 8);
+    let userLineId = "user_" + Math.floor(Math.random() * 100000);
     let userDisplayName = "訪客";
-    const STORAGE_KEY = "halloween_gandalf_record_v2_";
+    const STORAGE_KEY = "halloween_v3_";
 
-    async function initLIFF() {
-      try {
+    async function startApp() {
+      // 1. 嘗試 LIFF 初始化（5 秒超時防呆，避免卡在加載中）
+      const liffPromise = (async () => {
         if (typeof liff !== "undefined") {
           await liff.init({ liffId: MY_LIFF_ID });
-          if (liff.isInClient() && liff.isLoggedIn()) {
+          if (liff.isLoggedIn()) {
             const profile = await liff.getProfile();
             userLineId = profile.userId;
             userDisplayName = profile.displayName || "LINE 用戶";
           }
         }
+      })();
+
+      const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 3000));
+      
+      try {
+        await Promise.race([liffPromise, timeoutPromise]);
       } catch (err) {
-        console.warn("LIFF 啟用備用模式：", err);
-      } finally {
-        const loadingEl = document.getElementById('loading');
-        if (loadingEl) loadingEl.style.display = 'none';
+        console.warn("LIFF 載入略過，切換為瀏覽器測試模式", err);
+      }
 
-        let existingRecord = null;
-        try {
-          const raw = localStorage.getItem(STORAGE_KEY + userLineId);
-          if (raw) existingRecord = JSON.parse(raw);
-        } catch (e) {
-          console.warn("讀取紀錄失敗", e);
-        }
+      // 2. 關閉加載動畫
+      const loading = document.getElementById('loading');
+      if (loading) loading.style.display = 'none';
 
-        if (existingRecord && existingRecord.potion) {
-          showResult(existingRecord.potion, existingRecord.prize, existingRecord.image, existingRecord.redeemed);
-        } else {
-          const gameView = document.getElementById('game-view');
-          if (gameView) gameView.style.display = 'block';
-        }
+      // 3. 讀取紀錄或顯示抽獎介面
+      let existing = null;
+      try {
+        existing = JSON.parse(localStorage.getItem(STORAGE_KEY + userLineId));
+      } catch (e) {}
+
+      if (existing && existing.potion) {
+        showResult(existing.potion, existing.prize, existing.image, existing.redeemed);
+      } else {
+        const gameView = document.getElementById('game-view');
+        if (gameView) gameView.style.display = 'block';
       }
     }
 
     function openPotion(potionName, potionImg) {
-      const prize = PRIZES[potionName] || "神秘小禮物";
+      const prize = PRIZES[potionName] || "神秘獎勵";
       const record = {
         potion: potionName,
         prize: prize,
@@ -264,14 +270,12 @@
           potion: potionName,
           prize: prize
         })
-      }).catch(err => console.log(err));
+      }).catch(err => console.error("Sheet API 寫入略過:", err));
     }
 
     function showResult(potionName, prize, potionImg, isRedeemed) {
-      const gameView = document.getElementById('game-view');
-      const resultView = document.getElementById('result-view');
-      if (gameView) gameView.style.display = 'none';
-      if (resultView) resultView.style.display = 'block';
+      document.getElementById('game-view').style.display = 'none';
+      document.getElementById('result-view').style.display = 'block';
 
       document.getElementById('potion-title').innerText = potionName;
       document.getElementById('prize-text').innerText = prize;
@@ -294,8 +298,7 @@
     }
 
     function verifyRedemption() {
-      const isConfirmed = confirm("【店員核銷確認】\n確認已折抵此優惠？\n按下確認後將立即作廢失效！");
-      if (isConfirmed) {
+      if (confirm("【店員核銷確認】\n確認已折抵此優惠？\n按下確認後將立即作廢失效！")) {
         let record = null;
         try {
           record = JSON.parse(localStorage.getItem(STORAGE_KEY + userLineId));
@@ -316,16 +319,12 @@
             action: "redeem",
             userId: userLineId
           })
-        }).catch(err => console.log(err));
+        }).catch(err => console.error(err));
       }
     }
 
-    // 啟動程式
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', initLIFF);
-    } else {
-      initLIFF();
-    }
+    // 啟動
+    window.addEventListener('load', startApp);
   </script>
 </body>
 </html>
